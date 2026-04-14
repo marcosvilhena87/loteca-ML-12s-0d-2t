@@ -1,0 +1,21 @@
+=== RESUMO DO PALPITE ===
+Objective: 7.7907
+Contagem inclusões: {'top1': 9, 'top2': 5, 'top3': 4}
+Contagem símbolos (soft): {'1': 9, '2': 4, 'X': 5} alvo={'1': 8, 'X': 5, '2': 5}
+Hard constraints: {'triples': 2, 'doubles': 0, 'singles': 12, 'top1_inclusions': 9, 'top2_inclusions': 5, 'top3_inclusions': 4}
+
+=== DETALHE POR JOGO ===
+Jogo  1 | CORINTHIANS/SP x SANTA FE/COL | ranks=['top1'] | palpite=1 | scores=top1:0.5895(pos=7), top2:0.2437(pos=7), top3:0.1542(pos=9)
+Jogo  2 | CERRO PORTENO/PRY x JR BARRANQUILLA/COL | ranks=['top3'] | palpite=2 | scores=top1:0.4526(pos=13), top2:0.2865(pos=2), top3:0.2563(pos=2)
+Jogo  3 | ESTUDIANTES/ARG x CUSCO/PER | ranks=['top1'] | palpite=1 | scores=top1:0.7144(pos=2), top2:0.1770(pos=13), top3:0.0998(pos=13)
+Jogo  4 | NACIONAL/URY x TOLIMA/COL | ranks=['top2'] | palpite=X | scores=top1:0.4770(pos=11), top2:0.2818(pos=4), top3:0.2337(pos=4)
+Jogo  5 | GREMIO/RS x DEPORTIVO RIESTRA/ARG | ranks=['top2'] | palpite=X | scores=top1:0.5608(pos=9), top2:0.2763(pos=5), top3:0.1395(pos=11)
+Jogo  6 | SAO PAULO/SP x DEP OHIGGINS/CHL | ranks=['top1'] | palpite=1 | scores=top1:0.6520(pos=3), top2:0.2386(pos=9), top3:0.1170(pos=12)
+Jogo  7 | BOCA JUNIORS/ARG x BARCELONA/ECU | ranks=['top1'] | palpite=1 | scores=top1:0.6163(pos=5), top2:0.2187(pos=11), top3:0.1548(pos=8)
+Jogo  8 | VASCO DA GAMA/RJ x AUDAX ITALIANO/CHL | ranks=['top1'] | palpite=1 | scores=top1:0.6387(pos=4), top2:0.1992(pos=12), top3:0.1684(pos=7)
+Jogo  9 | SANTOS/SP x DEP RECOLETA/PRY | ranks=['top1'] | palpite=1 | scores=top1:0.7348(pos=1), top2:0.1672(pos=14), top3:0.0892(pos=14)
+Jogo 10 | LDU/ECU x MIRASSOL/SP | ranks=['top1', 'top2', 'top3'] | palpite=1X2 | scores=top1:0.5014(pos=10), top2:0.2685(pos=6), top3:0.2282(pos=5)
+Jogo 11 | CRUZEIRO/MG x UNIVERS CATOLICA/CHL | ranks=['top1', 'top2', 'top3'] | palpite=1X2 | scores=top1:0.5759(pos=8), top2:0.2309(pos=10), top3:0.1811(pos=6)
+Jogo 12 | LIBERTAD/PRY x ROSARIO CENTRAL/ARG | ranks=['top2'] | palpite=X | scores=top1:0.3892(pos=14), top2:0.3004(pos=1), top3:0.3059(pos=1)
+Jogo 13 | RACING/ARG/ARG x BOTAFOGO/RJ | ranks=['top3'] | palpite=2 | scores=top1:0.4713(pos=12), top2:0.2726(pos=3), top3:0.2453(pos=3)
+Jogo 14 | FLUMINENSE/RJ x IND RIVADAVIA/ARG | ranks=['top1'] | palpite=1 | scores=top1:0.5989(pos=6), top2:0.2382(pos=8), top3:0.1437(pos=10)
