@@ -77,7 +77,7 @@ def evaluate_solution(
     triples: Sequence[int],
     single_by_rank: Dict[str, Sequence[int]],
     model: Dict[str, object],
-) -> Tuple[float, Dict[str, int]]:
+) -> Dict[str, object]:
     score = 0.0
     symbol_counter: Counter[str] = Counter()
     simulated_hits = {"top1": [], "top2": [], "top3": []}
@@ -108,8 +108,16 @@ def evaluate_solution(
             simulated_hits["top3"].append(1)
 
     soft_penalty = sum(abs(symbol_counter[s] - SOFT_TARGETS[s]) for s in ("1", "X", "2")) * 0.05
-    structural_penalty = compute_structural_penalty(simulated_hits, model)
-    return score - soft_penalty - structural_penalty, dict(symbol_counter)
+    structural_details = structural_penalty_details(simulated_hits, model)
+    return {
+        "objective": score - soft_penalty - structural_details["penalty"],
+        "soft_penalty": soft_penalty,
+        "structural_penalty": structural_details["penalty"],
+        "symbol_counter": dict(symbol_counter),
+        "structural_profile": structural_details["profile_by_rank"],
+        "structural_distance": structural_details["distance_by_rank"],
+        "structural_targets": structural_details["targets_by_rank"],
+    }
 
 
 def run_lengths_from_hits(hits: Sequence[int]) -> List[int]:
@@ -150,19 +158,35 @@ def structural_profile_from_hits(hits: Sequence[int]) -> Dict[str, float]:
     }
 
 
-def compute_structural_penalty(
+def structural_penalty_details(
     simulated_hits: Dict[str, Sequence[int]], model: Dict[str, object]
-) -> float:
+) -> Dict[str, object]:
     targets = model.get("structural_targets", {})
     metrics = ("num_runs", "mean_run_size", "max_run", "dist_1", "dist_2", "dist_3plus")
-    penalty = 0.0
+    distance_by_rank: Dict[str, Dict[str, float]] = {}
+    profile_by_rank: Dict[str, Dict[str, float]] = {}
+    total_distance = 0.0
     for rank in ("top1", "top2", "top3"):
         profile = structural_profile_from_hits(simulated_hits[rank])
+        profile_by_rank[rank] = profile
         rank_targets = targets.get(rank, {})
+        rank_distance = {}
         for metric in metrics:
             target = float(rank_targets.get(metric, 0.0))
-            penalty += abs(profile[metric] - target)
-    return penalty * STRUCTURAL_PENALTY_WEIGHT
+            distance = abs(profile[metric] - target)
+            rank_distance[metric] = distance
+            total_distance += distance
+        distance_by_rank[rank] = rank_distance
+    targets_by_rank = {
+        rank: {metric: float(targets.get(rank, {}).get(metric, 0.0)) for metric in metrics}
+        for rank in ("top1", "top2", "top3")
+    }
+    return {
+        "penalty": total_distance * STRUCTURAL_PENALTY_WEIGHT,
+        "profile_by_rank": profile_by_rank,
+        "distance_by_rank": distance_by_rank,
+        "targets_by_rank": targets_by_rank,
+    }
 
 
 def game_uncertainty_score(game: Dict[str, object]) -> float:
@@ -197,14 +221,19 @@ def optimize_ticket(games: List[Dict[str, object]], model: Dict[str, object]) ->
                     "top2": set(top2_idxs),
                     "top3": set(top3_idxs),
                 }
-                objective, symbol_counter = evaluate_solution(games, triples, single_by_rank, model)
+                evaluation = evaluate_solution(games, triples, single_by_rank, model)
 
-                if best is None or objective > best["objective"]:
+                if best is None or evaluation["objective"] > best["objective"]:
                     best = {
-                        "objective": objective,
+                        "objective": evaluation["objective"],
                         "triples": set(triples),
                         "single_by_rank": single_by_rank,
-                        "symbol_counter": symbol_counter,
+                        "symbol_counter": evaluation["symbol_counter"],
+                        "soft_penalty": evaluation["soft_penalty"],
+                        "structural_penalty": evaluation["structural_penalty"],
+                        "structural_profile": evaluation["structural_profile"],
+                        "structural_distance": evaluation["structural_distance"],
+                        "structural_targets": evaluation["structural_targets"],
                     }
     if best is None:
         raise RuntimeError("Não foi possível encontrar combinação válida.")
@@ -272,8 +301,22 @@ def build_outputs(games: List[Dict[str, object]], solution: Dict[str, object], m
     debug_summary = [
         "=== RESUMO DO PALPITE ===",
         f"Objective: {solution['objective']:.4f}",
+        f"Soft penalty: {solution['soft_penalty']:.4f}",
+        f"Structural penalty: {solution['structural_penalty']:.4f}",
         f"Contagem inclusões: {inc_counts}",
         f"Contagem símbolos (soft): {solution['symbol_counter']} alvo={SOFT_TARGETS}",
+        "Perfil estrutural da aposta:",
+        f"  top1={solution['structural_profile']['top1']}",
+        f"  top2={solution['structural_profile']['top2']}",
+        f"  top3={solution['structural_profile']['top3']}",
+        "Structural targets usados na penalização:",
+        f"  top1={solution['structural_targets']['top1']}",
+        f"  top2={solution['structural_targets']['top2']}",
+        f"  top3={solution['structural_targets']['top3']}",
+        "Distância para structural_targets (abs por métrica):",
+        f"  top1={solution['structural_distance']['top1']}",
+        f"  top2={solution['structural_distance']['top2']}",
+        f"  top3={solution['structural_distance']['top3']}",
         f"Hard constraints: {HARD_COUNTS}",
         "",
         "=== DETALHE POR JOGO ===",
