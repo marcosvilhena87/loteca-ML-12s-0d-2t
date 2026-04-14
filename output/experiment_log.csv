@@ -1,0 +1,2 @@
+timestamp,weights,structural_penalty_weight,concentration_penalty_weight,triple_pool_size,objective,score_bruto,soft_penalty,structural_penalty,symbol_counts,triple_games
+2026-04-14T01:18:44.601960+00:00,"{""uncertainty"": 0.45, ""proximity_top1_top2"": 0.3, ""structural_gain_estimate"": 0.25}",0.2,0.12,7,6.580136,7.808998,0.100000,1.128862,"{""X"": 5, ""2"": 4, ""1"": 9}","4,12"
