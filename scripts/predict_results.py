@@ -25,6 +25,8 @@ HARD_COUNTS = {
 }
 
 SOFT_TARGETS = {"1": 8, "X": 5, "2": 5}
+TRIPLE_POOL_SIZE = 7
+STRUCTURAL_PENALTY_WEIGHT = 0.20
 
 
 def build_game_features(rows: List[Dict[str, object]]) -> List[Dict[str, object]]:
@@ -78,24 +80,96 @@ def evaluate_solution(
 ) -> Tuple[float, Dict[str, int]]:
     score = 0.0
     symbol_counter: Counter[str] = Counter()
+    simulated_hits = {"top1": [], "top2": [], "top3": []}
 
     for idx, game in enumerate(games):
         if idx in triples:
             for rank in ("top1", "top2", "top3"):
                 score += score_game_rank(game, rank, model)
                 symbol_counter[game["top_symbol"][rank]] += 1
+                simulated_hits[rank].append(1)
         elif idx in single_by_rank["top1"]:
             score += score_game_rank(game, "top1", model)
             symbol_counter[game["top_symbol"]["top1"]] += 1
+            simulated_hits["top1"].append(1)
+            simulated_hits["top2"].append(0)
+            simulated_hits["top3"].append(0)
         elif idx in single_by_rank["top2"]:
             score += score_game_rank(game, "top2", model)
             symbol_counter[game["top_symbol"]["top2"]] += 1
+            simulated_hits["top1"].append(0)
+            simulated_hits["top2"].append(1)
+            simulated_hits["top3"].append(0)
         else:
             score += score_game_rank(game, "top3", model)
             symbol_counter[game["top_symbol"]["top3"]] += 1
+            simulated_hits["top1"].append(0)
+            simulated_hits["top2"].append(0)
+            simulated_hits["top3"].append(1)
 
     soft_penalty = sum(abs(symbol_counter[s] - SOFT_TARGETS[s]) for s in ("1", "X", "2")) * 0.05
-    return score - soft_penalty, dict(symbol_counter)
+    structural_penalty = compute_structural_penalty(simulated_hits, model)
+    return score - soft_penalty - structural_penalty, dict(symbol_counter)
+
+
+def run_lengths_from_hits(hits: Sequence[int]) -> List[int]:
+    runs: List[int] = []
+    streak = 0
+    for hit in hits:
+        if hit == 1:
+            streak += 1
+        elif streak > 0:
+            runs.append(streak)
+            streak = 0
+    if streak > 0:
+        runs.append(streak)
+    return runs
+
+
+def run_distribution(runs: Sequence[int]) -> Dict[str, float]:
+    if not runs:
+        return {"dist_1": 0.0, "dist_2": 0.0, "dist_3plus": 0.0}
+    total = len(runs)
+    return {
+        "dist_1": sum(1 for run in runs if run == 1) / total,
+        "dist_2": sum(1 for run in runs if run == 2) / total,
+        "dist_3plus": sum(1 for run in runs if run >= 3) / total,
+    }
+
+
+def structural_profile_from_hits(hits: Sequence[int]) -> Dict[str, float]:
+    runs = run_lengths_from_hits(hits)
+    distribution = run_distribution(runs)
+    return {
+        "num_runs": float(len(runs)),
+        "mean_run_size": float(sum(runs) / len(runs)) if runs else 0.0,
+        "max_run": float(max(runs) if runs else 0),
+        "dist_1": distribution["dist_1"],
+        "dist_2": distribution["dist_2"],
+        "dist_3plus": distribution["dist_3plus"],
+    }
+
+
+def compute_structural_penalty(
+    simulated_hits: Dict[str, Sequence[int]], model: Dict[str, object]
+) -> float:
+    targets = model.get("structural_targets", {})
+    metrics = ("num_runs", "mean_run_size", "max_run", "dist_1", "dist_2", "dist_3plus")
+    penalty = 0.0
+    for rank in ("top1", "top2", "top3"):
+        profile = structural_profile_from_hits(simulated_hits[rank])
+        rank_targets = targets.get(rank, {})
+        for metric in metrics:
+            target = float(rank_targets.get(metric, 0.0))
+            penalty += abs(profile[metric] - target)
+    return penalty * STRUCTURAL_PENALTY_WEIGHT
+
+
+def game_uncertainty_score(game: Dict[str, object]) -> float:
+    p1 = game["p_top"]["top1"]
+    p2 = game["p_top"]["top2"]
+    p3 = game["p_top"]["top3"]
+    return (p2 + p3) - 2 * (p1 - p3)
 
 
 def optimize_ticket(games: List[Dict[str, object]], model: Dict[str, object]) -> Dict[str, object]:
@@ -106,7 +180,10 @@ def optimize_ticket(games: List[Dict[str, object]], model: Dict[str, object]) ->
     singles_top2 = HARD_COUNTS["top2_inclusions"] - HARD_COUNTS["triples"]
     singles_top3 = HARD_COUNTS["top3_inclusions"] - HARD_COUNTS["triples"]
 
-    for triples in itertools.combinations(indices, HARD_COUNTS["triples"]):
+    ranked_by_uncertainty = sorted(indices, key=lambda i: game_uncertainty_score(games[i]), reverse=True)
+    triple_pool = ranked_by_uncertainty[: max(HARD_COUNTS["triples"], TRIPLE_POOL_SIZE)]
+
+    for triples in itertools.combinations(triple_pool, HARD_COUNTS["triples"]):
         remaining_after_triples = [i for i in indices if i not in triples]
         for top1_idxs in itertools.combinations(remaining_after_triples, singles_top1):
             rem_after_top1 = [i for i in remaining_after_triples if i not in top1_idxs]
