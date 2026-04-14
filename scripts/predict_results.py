@@ -5,6 +5,7 @@ from __future__ import annotations
 import itertools
 import json
 import csv
+import os
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -30,14 +31,14 @@ HARD_COUNTS = {
 SOFT_TARGETS = {"1": 8, "X": 5, "2": 5}
 TRIPLE_POOL_SIZE = 7
 STRUCTURAL_PENALTY_WEIGHT = 0.20
-CONCENTRATION_PENALTY_WEIGHT = 0.12
+CONCENTRATION_PENALTY_WEIGHT = float(os.getenv("CONCENTRATION_PENALTY_WEIGHT", "0.12"))
 STRUCTURAL_METRIC_WEIGHTS = {
     "top1": {
         "num_runs": 1.2,
         "mean_run_size": 0.8,
         "max_run": 1.0,
         "dist_1": 0.7,
-        "dist_2": 1.0,
+        "dist_2": 0.8,
         "dist_3plus": 0.9,
     },
     "top2": {
@@ -49,11 +50,11 @@ STRUCTURAL_METRIC_WEIGHTS = {
         "dist_3plus": 0.5,
     },
     "top3": {
-        "num_runs": 1.2,
+        "num_runs": 1.3,
         "mean_run_size": 0.7,
         "max_run": 0.8,
         "dist_1": 1.0,
-        "dist_2": 1.2,
+        "dist_2": 1.3,
         "dist_3plus": 0.5,
     },
 }
@@ -453,6 +454,7 @@ def append_experiment_log(solution: Dict[str, object]) -> None:
     headers = [
         "timestamp",
         "weights",
+        "structural_metric_weights",
         "structural_penalty_weight",
         "concentration_penalty_weight",
         "triple_pool_size",
@@ -466,6 +468,7 @@ def append_experiment_log(solution: Dict[str, object]) -> None:
     row = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "weights": json.dumps(TRIPLE_CANDIDATE_WEIGHTS, ensure_ascii=False),
+        "structural_metric_weights": json.dumps(STRUCTURAL_METRIC_WEIGHTS, ensure_ascii=False),
         "structural_penalty_weight": STRUCTURAL_PENALTY_WEIGHT,
         "concentration_penalty_weight": CONCENTRATION_PENALTY_WEIGHT,
         "triple_pool_size": solution["triple_pool_size"],
@@ -477,11 +480,24 @@ def append_experiment_log(solution: Dict[str, object]) -> None:
         "triple_games": ",".join(str(game_idx + 1) for game_idx in sorted(solution["triples"])),
     }
 
-    file_exists = EXPERIMENT_LOG_PATH.exists()
-    with EXPERIMENT_LOG_PATH.open("a", encoding="utf-8", newline="") as handle:
+    existing_rows: List[Dict[str, str]] = []
+    rewrite_file = False
+    if EXPERIMENT_LOG_PATH.exists():
+        with EXPERIMENT_LOG_PATH.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            existing_headers = reader.fieldnames or []
+            rewrite_file = existing_headers != headers
+            if rewrite_file:
+                for existing_row in reader:
+                    existing_rows.append({header: existing_row.get(header, "") for header in headers})
+
+    mode = "w" if rewrite_file or not EXPERIMENT_LOG_PATH.exists() else "a"
+    with EXPERIMENT_LOG_PATH.open(mode, encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=headers)
-        if not file_exists:
+        if mode == "w":
             writer.writeheader()
+            if existing_rows:
+                writer.writerows(existing_rows)
         writer.writerow(row)
 
 
